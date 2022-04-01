@@ -287,8 +287,42 @@ function defineVideoController() {
     var wrapper = document.createElement("div");
     wrapper.classList.add("vsc-controller");
 
-    if (!this.video.currentSrc) {
-      wrapper.classList.add("vsc-nosource");
+    if (this.video.nodeName=="SMP-TOUCAN-PLAYER") {
+      let video=this.video;
+      video.play=function() {
+        video.dispatchEvent(new CustomEvent("remotecontrol",{detail:{name:"play"}}));
+      };
+      video.pause=function() {
+        video.dispatchEvent(new CustomEvent("remotecontrol",{detail:{name:"pause"}}));
+      };
+      video._playbackRate = 1;
+      video._currentTime = 100;
+      Object.defineProperty(video,"playbackRate",{
+         set : function(r) {
+           video._playbackRate = r;
+           video.dispatchEvent(new CustomEvent("remotecontrol",{detail:{name:"playbackrate",value:r}}));
+         },
+         get: function() {
+           return video._playbackRate;
+         }
+      });
+      Object.defineProperty(video,"currentTime",{
+         set : function(t) {
+           video.dispatchEvent(new CustomEvent("remotecontrol",{detail:{name:"seekrelative",value:t-video._currentTime}}));
+         },
+         get: function() {
+           // this should update, but because the currenttime getter
+           // in the web component is unavailable in the web
+           // extension, it's just going to stay at 100 always, but
+           // this still allows the difference in the set to work for
+           // relative seeking, however not any other sort.
+           return video._currentTime;
+         }
+      });
+    } else {
+        if (!this.video.currentSrc) {
+            wrapper.classList.add("vsc-nosource");
+        }
     }
 
     if (tc.settings.startHidden) {
@@ -626,7 +660,7 @@ function initializeNow(document) {
       return;
     }
     if (
-      node.nodeName === "VIDEO" ||
+      node.nodeName === "VIDEO" || node.nodeName === "SMP-TOUCAN-PLAYER" ||
       (node.nodeName === "AUDIO" && tc.settings.audioBoolean)
     ) {
       if (added) {
@@ -693,9 +727,9 @@ function initializeNow(document) {
   });
 
   if (tc.settings.audioBoolean) {
-    var mediaTags = document.querySelectorAll("video,audio");
+    var mediaTags = document.querySelectorAll("video,audio,smp-toucan-player");
   } else {
-    var mediaTags = document.querySelectorAll("video");
+    var mediaTags = document.querySelectorAll("video,smp-toucan-player");
   }
 
   mediaTags.forEach(function (video) {
